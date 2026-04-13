@@ -185,6 +185,10 @@ function scrollToBottom() {
   });
 }
 
+function timeStr() {
+  return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
 function addUserMessage(text) {
   welcomeEl.classList.add("hidden");
   const msg = document.createElement("div");
@@ -195,6 +199,7 @@ function addUserMessage(text) {
     </div>
     <div class="message-content">
       <div class="message-text">${escapeHtml(text)}</div>
+      <div class="message-meta">${timeStr()}</div>
     </div>
   `;
   messagesEl.appendChild(msg);
@@ -217,6 +222,13 @@ function createAssistantMessage() {
           <div class="thinking-dots"><span></span><span></span><span></span></div>
           <span>Thinking...</span>
         </div>
+      </div>
+      <div class="message-actions" style="display:none">
+        <button class="btn-copy" title="Copy response">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span>Copy</span>
+        </button>
+        <span class="message-meta">${timeStr()}</span>
       </div>
     </div>
   `;
@@ -356,6 +368,18 @@ async function sendMessage(text) {
               const thinkEl = textEl.querySelector(".thinking-indicator");
               if (thinkEl) thinkEl.remove();
               textEl.innerHTML = "<p>I processed your request. Please try rephrasing if you didn't get the expected response.</p>";
+            }
+            // Show actions bar
+            const actions = msgEl.querySelector(".message-actions");
+            if (actions) {
+              actions.style.display = "";
+              const copyBtn = actions.querySelector(".btn-copy");
+              copyBtn.addEventListener("click", () => {
+                navigator.clipboard.writeText(fullText).then(() => {
+                  copyBtn.querySelector("span").textContent = "Copied!";
+                  setTimeout(() => { copyBtn.querySelector("span").textContent = "Copy"; }, 2000);
+                });
+              });
             }
             break;
         }
