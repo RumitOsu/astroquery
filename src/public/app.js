@@ -1,93 +1,137 @@
 // ========== Star Background ==========
-(function initStars() {
+(function initStarfield() {
   const canvas = document.getElementById("stars");
   const ctx = canvas.getContext("2d");
   let stars = [];
-  const STAR_COUNT = 200;
+  const COUNT = 280;
 
   function resize() {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
   }
 
-  function createStars() {
-    stars = [];
-    for (let i = 0; i < STAR_COUNT; i++) {
-      stars.push({
-        x: Math.random() * canvas.width,
-        y: Math.random() * canvas.height,
-        r: Math.random() * 1.5 + 0.3,
-        alpha: Math.random() * 0.8 + 0.2,
-        drift: Math.random() * 0.3 + 0.05,
-        twinkleSpeed: Math.random() * 0.02 + 0.005,
-        twinklePhase: Math.random() * Math.PI * 2,
-      });
-    }
+  function create() {
+    stars = Array.from({ length: COUNT }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * 1.4 + 0.2,
+      alpha: Math.random() * 0.7 + 0.3,
+      speed: Math.random() * 0.15 + 0.02,
+      twinkle: Math.random() * 0.015 + 0.003,
+      phase: Math.random() * Math.PI * 2,
+      hue: Math.random() > 0.85 ? 240 + Math.random() * 40 : 220 + Math.random() * 20,
+    }));
   }
 
-  function draw() {
+  function draw(t) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const time = Date.now() * 0.001;
     for (const s of stars) {
-      const alpha = s.alpha * (0.6 + 0.4 * Math.sin(time * s.twinkleSpeed * 10 + s.twinklePhase));
+      const a = s.alpha * (0.5 + 0.5 * Math.sin(t * s.twinkle + s.phase));
       ctx.beginPath();
       ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(200, 210, 255, ${alpha})`;
+      ctx.fillStyle = `hsla(${s.hue}, 60%, 85%, ${a})`;
       ctx.fill();
-      s.y -= s.drift * 0.15;
+      // Very subtle glow on brighter stars
+      if (s.r > 1) {
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r * 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = `hsla(${s.hue}, 60%, 85%, ${a * 0.08})`;
+        ctx.fill();
+      }
+      s.y -= s.speed * 0.12;
       if (s.y < -5) { s.y = canvas.height + 5; s.x = Math.random() * canvas.width; }
     }
     requestAnimationFrame(draw);
   }
 
-  window.addEventListener("resize", () => { resize(); createStars(); });
+  window.addEventListener("resize", () => { resize(); create(); });
   resize();
-  createStars();
-  draw();
+  create();
+  requestAnimationFrame(draw);
 })();
 
-// ========== Simple Markdown Parser ==========
+// ========== Shooting Stars ==========
+(function initShootingStars() {
+  const canvas = document.getElementById("shooting-stars");
+  const ctx = canvas.getContext("2d");
+  let shooters = [];
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+
+  function spawn() {
+    if (Math.random() > 0.003 || shooters.length >= 3) return;
+    const x = Math.random() * canvas.width * 0.8;
+    const y = Math.random() * canvas.height * 0.4;
+    const angle = Math.PI / 4 + Math.random() * 0.3;
+    shooters.push({
+      x, y, angle,
+      speed: 6 + Math.random() * 6,
+      length: 60 + Math.random() * 80,
+      life: 1,
+      decay: 0.015 + Math.random() * 0.01,
+    });
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    spawn();
+    shooters = shooters.filter((s) => {
+      s.x += Math.cos(s.angle) * s.speed;
+      s.y += Math.sin(s.angle) * s.speed;
+      s.life -= s.decay;
+      if (s.life <= 0) return false;
+
+      const tailX = s.x - Math.cos(s.angle) * s.length;
+      const tailY = s.y - Math.sin(s.angle) * s.length;
+      const grad = ctx.createLinearGradient(tailX, tailY, s.x, s.y);
+      grad.addColorStop(0, `rgba(200, 210, 255, 0)`);
+      grad.addColorStop(0.6, `rgba(200, 210, 255, ${s.life * 0.3})`);
+      grad.addColorStop(1, `rgba(220, 225, 255, ${s.life * 0.8})`);
+      ctx.beginPath();
+      ctx.moveTo(tailX, tailY);
+      ctx.lineTo(s.x, s.y);
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Head glow
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 2, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(220, 225, 255, ${s.life * 0.9})`;
+      ctx.fill();
+      return true;
+    });
+    requestAnimationFrame(draw);
+  }
+
+  window.addEventListener("resize", resize);
+  resize();
+  requestAnimationFrame(draw);
+})();
+
+// ========== Markdown Rendering ==========
 function renderMarkdown(text) {
-  let html = text
-    // Code blocks
-    .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="lang-$1">$2</code></pre>')
-    // Inline code
+  if (typeof marked !== "undefined") {
+    marked.setOptions({
+      breaks: true,
+      gfm: true,
+      headerIds: false,
+      mangle: false,
+    });
+    return marked.parse(text);
+  }
+  // Fallback
+  return text
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
     .replace(/`([^`]+)`/g, '<code>$1</code>')
-    // Headers
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    // Bold
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    // Italic
     .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    // Links
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-    // Horizontal rule
-    .replace(/^---$/gm, '<hr>')
-    // Unordered lists
-    .replace(/^- (.+)$/gm, '<li>$1</li>')
-    // Line breaks to paragraphs
     .replace(/\n\n/g, '</p><p>')
     .replace(/\n/g, '<br>');
-
-  // Wrap list items
-  html = html.replace(/(<li>.*?<\/li>(\s*<br>)?)+/g, (match) => `<ul>${match.replace(/<br>/g, '')}</ul>`);
-
-  // Wrap in paragraphs
-  html = `<p>${html}</p>`;
-
-  // Clean empty paragraphs
-  html = html.replace(/<p>\s*<\/p>/g, '');
-  html = html.replace(/<p>\s*(<h[1-3]>)/g, '$1');
-  html = html.replace(/(<\/h[1-3]>)\s*<\/p>/g, '$1');
-  html = html.replace(/<p>\s*(<ul>)/g, '$1');
-  html = html.replace(/(<\/ul>)\s*<\/p>/g, '$1');
-  html = html.replace(/<p>\s*(<pre>)/g, '$1');
-  html = html.replace(/(<\/pre>)\s*<\/p>/g, '$1');
-  html = html.replace(/<p>\s*(<hr>)\s*<\/p>/g, '$1');
-
-  return html;
 }
 
 // ========== App State ==========
@@ -103,27 +147,40 @@ const sendBtn = document.getElementById("btn-send");
 const clearBtn = document.getElementById("btn-clear");
 const statusEl = document.getElementById("status");
 
-// ========== Session Management ==========
+// ========== Session ==========
 async function createSession() {
   try {
     const res = await fetch("/api/session", { method: "POST" });
     const data = await res.json();
     sessionId = data.sessionId;
     statusEl.classList.add("connected");
-    statusEl.querySelector(".status-text").textContent = "Ready";
-  } catch (err) {
-    statusEl.querySelector(".status-text").textContent = "Connection failed";
-    console.error("Session creation failed:", err);
+    statusEl.querySelector(".status-text").textContent = "Online";
+  } catch {
+    statusEl.querySelector(".status-text").textContent = "Offline";
   }
 }
 
-// ========== Message Rendering ==========
+// ========== Messages ==========
+function escapeHtml(text) {
+  const d = document.createElement("div");
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+function scrollToBottom() {
+  requestAnimationFrame(() => {
+    chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
+  });
+}
+
 function addUserMessage(text) {
   welcomeEl.classList.add("hidden");
   const msg = document.createElement("div");
   msg.className = "message user";
   msg.innerHTML = `
-    <div class="message-avatar">👤</div>
+    <div class="message-avatar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    </div>
     <div class="message-content">
       <div class="message-text">${escapeHtml(text)}</div>
     </div>
@@ -136,11 +193,18 @@ function createAssistantMessage() {
   const msg = document.createElement("div");
   msg.className = "message assistant";
   msg.innerHTML = `
-    <div class="message-avatar">🪐</div>
+    <div class="message-avatar">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round">
+        <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+      </svg>
+    </div>
     <div class="message-content">
       <div class="tool-indicators"></div>
       <div class="message-text">
-        <div class="typing-indicator"><span></span><span></span><span></span></div>
+        <div class="thinking-indicator">
+          <div class="thinking-dots"><span></span><span></span><span></span></div>
+          <span>Thinking...</span>
+        </div>
       </div>
     </div>
   `;
@@ -149,35 +213,51 @@ function createAssistantMessage() {
   return msg;
 }
 
-function escapeHtml(text) {
-  const div = document.createElement("div");
-  div.textContent = text;
-  return div.innerHTML;
-}
-
-function scrollToBottom() {
-  chatContainer.scrollTo({ top: chatContainer.scrollHeight, behavior: "smooth" });
-}
-
+// ========== Tool Cards ==========
 const TOOL_META = {
-  AstroCalculator: { class: "calc", icon: "🧮", label: "Calculator" },
-  SpaceSearch: { class: "search", icon: "🔍", label: "Web Search" },
-  CosmicLibrary: { class: "rag", icon: "📚", label: "Knowledge Base" },
-  UnitConverter: { class: "unit", icon: "📐", label: "Unit Converter" },
+  AstroCalculator: { cls: "calc", icon: "🧮", label: "Calculator" },
+  SpaceSearch: { cls: "search", icon: "🔍", label: "Web Search" },
+  CosmicLibrary: { cls: "rag", icon: "📚", label: "Knowledge Base" },
+  UnitConverter: { cls: "unit", icon: "📐", label: "Unit Converter" },
 };
 
-function addToolIndicator(msgEl, toolName) {
+function addToolCard(msgEl, toolName, args) {
   const indicators = msgEl.querySelector(".tool-indicators");
-  const meta = TOOL_META[toolName] || { class: "calc", icon: "⚙️", label: toolName };
-  const indicator = document.createElement("span");
-  indicator.className = `tool-indicator ${meta.class}`;
-  indicator.id = `tool-${toolName}-${Date.now()}`;
-  indicator.innerHTML = `<span class="spinner"></span> ${meta.icon} ${meta.label}`;
-  indicators.appendChild(indicator);
-  return indicator;
+  const meta = TOOL_META[toolName] || { cls: "calc", icon: "⚙️", label: toolName };
+
+  // Format args for display
+  let argsStr = "";
+  if (args) {
+    const vals = Object.values(args);
+    argsStr = vals.map((v) => (typeof v === "string" ? v : JSON.stringify(v))).join(", ");
+    if (argsStr.length > 60) argsStr = argsStr.slice(0, 57) + "...";
+  }
+
+  const card = document.createElement("div");
+  card.className = `tool-card ${meta.cls}`;
+  card.innerHTML = `
+    <span class="tool-card-icon">${meta.icon}</span>
+    <div class="tool-card-info">
+      <span class="tool-card-name">${meta.label}</span>
+      ${argsStr ? `<span class="tool-card-args">${escapeHtml(argsStr)}</span>` : ""}
+    </div>
+    <span class="spinner"></span>
+    <span class="check-icon">✓</span>
+    <div class="tool-card-result"></div>
+  `;
+
+  card.addEventListener("click", () => {
+    if (card.classList.contains("done")) {
+      card.classList.toggle("expanded");
+    }
+  });
+
+  indicators.appendChild(card);
+  scrollToBottom();
+  return card;
 }
 
-// ========== Streaming Chat ==========
+// ========== Streaming ==========
 async function sendMessage(text) {
   if (isStreaming || !text.trim()) return;
   isStreaming = true;
@@ -188,7 +268,7 @@ async function sendMessage(text) {
   addUserMessage(text);
   const msgEl = createAssistantMessage();
   const textEl = msgEl.querySelector(".message-text");
-  let currentIndicator = null;
+  let currentCard = null;
   let fullText = "";
 
   try {
@@ -212,45 +292,63 @@ async function sendMessage(text) {
 
       for (const line of lines) {
         if (!line.startsWith("data: ")) continue;
-        const data = JSON.parse(line.slice(6));
 
-        if (data.type === "tool_call") {
-          currentIndicator = addToolIndicator(msgEl, data.name);
-          scrollToBottom();
-        }
+        let data;
+        try { data = JSON.parse(line.slice(6)); }
+        catch { continue; }
 
-        if (data.type === "tool_result" && currentIndicator) {
-          currentIndicator.classList.add("done");
-          currentIndicator = null;
-        }
+        switch (data.type) {
+          case "tool_call":
+            currentCard = addToolCard(msgEl, data.name, data.args);
+            // Update thinking text
+            const thinking = textEl.querySelector(".thinking-indicator span:last-child");
+            if (thinking) {
+              const meta = TOOL_META[data.name] || { label: data.name };
+              thinking.textContent = `Using ${meta.label}...`;
+            }
+            break;
 
-        if (data.type === "token") {
-          if (fullText === "") {
-            // Remove typing indicator
-            const typing = textEl.querySelector(".typing-indicator");
-            if (typing) typing.remove();
-          }
-          fullText += data.content;
-          textEl.innerHTML = renderMarkdown(fullText);
-          scrollToBottom();
-        }
+          case "tool_result":
+            if (currentCard) {
+              currentCard.classList.add("done");
+              const resultEl = currentCard.querySelector(".tool-card-result");
+              if (resultEl && data.content) {
+                resultEl.textContent = data.content;
+              }
+              currentCard = null;
+            }
+            break;
 
-        if (data.type === "error") {
-          textEl.innerHTML = `<p style="color: var(--error);">Error: ${escapeHtml(data.content)}</p>`;
-        }
+          case "token":
+            if (fullText === "") {
+              textEl.innerHTML = "";
+            }
+            fullText += data.content;
+            textEl.innerHTML = renderMarkdown(fullText);
+            textEl.classList.add("streaming-cursor");
+            scrollToBottom();
+            break;
 
-        if (data.type === "done" && fullText === "") {
-          // Agent responded but no tokens streamed (shouldn't normally happen)
-          const typing = textEl.querySelector(".typing-indicator");
-          if (typing) typing.remove();
-          textEl.innerHTML = "<p>I processed your request but didn't generate a text response. Please try rephrasing your question.</p>";
+          case "error":
+            textEl.innerHTML = `<p style="color: var(--error);">Error: ${escapeHtml(data.content)}</p>`;
+            break;
+
+          case "done":
+            textEl.classList.remove("streaming-cursor");
+            if (fullText === "") {
+              const thinkEl = textEl.querySelector(".thinking-indicator");
+              if (thinkEl) thinkEl.remove();
+              textEl.innerHTML = "<p>I processed your request. Please try rephrasing if you didn't get the expected response.</p>";
+            }
+            break;
         }
       }
     }
+
+    textEl.classList.remove("streaming-cursor");
   } catch (err) {
     console.error("Stream error:", err);
-    const textEl2 = msgEl.querySelector(".message-text");
-    textEl2.innerHTML = `<p style="color: var(--error);">Connection error. Please try again.</p>`;
+    textEl.innerHTML = `<p style="color: var(--error);">Connection error. Please check the server and try again.</p>`;
   }
 
   isStreaming = false;
@@ -266,7 +364,6 @@ form.addEventListener("submit", (e) => {
 
 input.addEventListener("input", () => {
   sendBtn.disabled = !input.value.trim() || isStreaming;
-  // Auto-resize textarea
   input.style.height = "auto";
   input.style.height = Math.min(input.scrollHeight, 150) + "px";
 });
@@ -285,10 +382,7 @@ clearBtn.addEventListener("click", async () => {
 });
 
 document.querySelectorAll(".suggestion").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    const query = btn.getAttribute("data-query");
-    sendMessage(query);
-  });
+  btn.addEventListener("click", () => sendMessage(btn.dataset.query));
 });
 
 // ========== Init ==========

@@ -23,11 +23,12 @@ const cosmicLibrary = tool(
         return "No relevant documents found for this query.";
       }
 
-      let output = "";
-      for (const [doc, score] of results) {
-        const source = `📄 ${doc.metadata.title} › ${doc.metadata.section}`;
-        output += `**${source}** (relevance: ${(1 - score).toFixed(2)})\n`;
-        output += `${doc.pageContent.slice(0, 600)}\n\n---\n\n`;
+      let output = `Found ${results.length} relevant passages:\n\n`;
+      for (let i = 0; i < results.length; i++) {
+        const [doc, score] = results[i];
+        const source = `[Source: ${doc.metadata.title} > ${doc.metadata.section}]`;
+        output += `**Result ${i + 1}** ${source}\n`;
+        output += `${doc.pageContent.slice(0, 700)}\n\n---\n\n`;
       }
 
       logger.info("CosmicLibrary results", {

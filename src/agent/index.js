@@ -8,22 +8,27 @@ import unitConverter from "./tools/unitConverter.js";
 import { buildVectorStore } from "../rag/ingest.js";
 import logger from "../logger.js";
 
-const SYSTEM_PROMPT = `You are AstroQuery, an expert astronomy and space exploration assistant. You have access to four powerful tools:
+const SYSTEM_PROMPT = `You are **AstroQuery**, an expert astronomy and space exploration assistant with an infectious passion for the cosmos. You have access to four powerful tools:
 
-1. **AstroCalculator** — for math with built-in astronomical constants (speed of light, AU, parsec, solar mass, etc.)
-2. **SpaceSearch** — for searching the web for current space news, discoveries, and events
-3. **CosmicLibrary** — for searching a curated knowledge base of astronomy documents (solar system, stars, exoplanets, missions, cosmology, black holes, space weather)
-4. **UnitConverter** — for converting between astronomical units (light-years, parsecs, AU, km, solar masses, etc.)
+1. **AstroCalculator** — evaluates math expressions with built-in astronomical constants (c, AU, parsec, ly, solarMass, earthMass, jupiterMass, solarRadius, earthRadius, G, hubbleConstant, solarLuminosity, stefanBoltzmann). Use standard math syntax.
+2. **SpaceSearch** — searches the web via Tavily for current space news, mission updates, discoveries, and astronomical events.
+3. **CosmicLibrary** — searches a curated vector knowledge base of 7 astronomy documents covering: the Solar System, stellar physics, exoplanets, space missions, cosmology, black holes, and space weather. Returns passages with source attribution.
+4. **UnitConverter** — converts between astronomical units. Distance: m, km, mi, AU, ly, parsec, pc, kpc, Mpc. Mass: kg, g, lb, solar-mass, earth-mass, jupiter-mass.
 
-Guidelines:
-- Use CosmicLibrary for factual astronomy questions — it provides sourced, reliable information.
-- Use SpaceSearch for current events, recent discoveries, or real-time information not in the knowledge base.
-- Use AstroCalculator for any mathematical computation — always show the calculation and explain the result.
-- Use UnitConverter when the user wants to convert between different units of measurement.
-- You can chain multiple tools in a single response when needed.
-- Always cite your sources when using CosmicLibrary (the tool provides source attribution).
-- Be enthusiastic about space! Make complex topics accessible and engaging.
-- Format responses with markdown for readability.`;
+## When to use each tool
+- **CosmicLibrary first** for factual astronomy/astrophysics questions — it gives sourced, curated answers.
+- **SpaceSearch** for anything requiring current/recent information (news, launches, discoveries from this year).
+- **AstroCalculator** whenever math is involved — ALWAYS show your expression and explain the result in human-friendly terms.
+- **UnitConverter** when the user asks to convert between units, or when a conversion would make your answer clearer.
+- **Chain tools** freely. E.g., use CosmicLibrary to get a fact, then AstroCalculator to compute with it.
+
+## Response style
+- Use **markdown** formatting: headers, bold, bullet points, tables when helpful.
+- When citing CosmicLibrary results, mention the source document naturally (e.g., "According to our stellar physics reference...").
+- Make numbers tangible — compare astronomical scales to everyday things ("that's like driving to the Sun and back 40 times").
+- Be enthusiastic but accurate. Never invent facts — if you're unsure, say so.
+- Keep responses focused and well-structured. Use headers for long answers.
+- When showing calculations, format them clearly with the expression and result.`;
 
 let agent = null;
 const conversationHistories = new Map();
@@ -31,7 +36,6 @@ const conversationHistories = new Map();
 export async function initAgent() {
   logger.info("Initializing AstroQuery agent...");
 
-  // Build vector store
   const store = await buildVectorStore();
   setVectorStore(store);
 
@@ -59,27 +63,8 @@ export function getHistory(sessionId) {
   return conversationHistories.get(sessionId);
 }
 
-export async function chat(sessionId, userMessage) {
-  if (!agent) throw new Error("Agent not initialized");
-
-  const history = getHistory(sessionId);
-  history.push(new HumanMessage(userMessage));
-
-  // Keep last 20 messages for context window
-  const recentHistory = history.slice(-20);
-
-  logger.info("Chat request", { sessionId, message: userMessage });
-
-  const response = await agent.invoke({
-    messages: [new SystemMessage(SYSTEM_PROMPT), ...recentHistory],
-  });
-
-  const lastMsg = response.messages[response.messages.length - 1];
-  history.push(new AIMessage(lastMsg.content));
-
-  logger.info("Chat response", { sessionId, responseLength: lastMsg.content.length });
-
-  return lastMsg.content;
+export function clearHistory(sessionId) {
+  conversationHistories.delete(sessionId);
 }
 
 export async function* chatStream(sessionId, userMessage) {
@@ -88,9 +73,13 @@ export async function* chatStream(sessionId, userMessage) {
   const history = getHistory(sessionId);
   history.push(new HumanMessage(userMessage));
 
-  const recentHistory = history.slice(-20);
+  const recentHistory = history.slice(-24);
 
-  logger.info("Streaming chat request", { sessionId, message: userMessage });
+  logger.info("Chat request", {
+    sessionId: sessionId.slice(0, 8),
+    message: userMessage.slice(0, 100),
+    historyLength: recentHistory.length,
+  });
 
   const stream = await agent.stream(
     { messages: [new SystemMessage(SYSTEM_PROMPT), ...recentHistory] },
@@ -98,24 +87,43 @@ export async function* chatStream(sessionId, userMessage) {
   );
 
   let fullResponse = "";
+  const toolsUsed = [];
+
   for await (const [message, metadata] of stream) {
     // Emit tool calls
     if (message.tool_calls && message.tool_calls.length > 0) {
       for (const tc of message.tool_calls) {
-        logger.info("Tool call", { tool: tc.name, args: tc.args });
+        if (!tc.name) continue;
+        toolsUsed.push(tc.name);
+        logger.info("Tool call", {
+          tool: tc.name,
+          args: JSON.stringify(tc.args).slice(0, 200),
+        });
         yield { type: "tool_call", name: tc.name, args: tc.args };
       }
     }
 
     // Emit tool results
-    if (message.constructor.name === "ToolMessage" || message.name) {
-      logger.info("Tool result", { tool: message.name, resultLength: message.content?.length });
-      yield { type: "tool_result", name: message.name, content: message.content?.slice(0, 200) };
+    if (message.name && message.content) {
+      const preview = typeof message.content === "string"
+        ? message.content.slice(0, 300)
+        : JSON.stringify(message.content).slice(0, 300);
+      logger.info("Tool result", {
+        tool: message.name,
+        resultLength: message.content?.length || 0,
+        preview: preview.slice(0, 100),
+      });
+      yield { type: "tool_result", name: message.name, content: preview };
     }
 
     // Emit AI text tokens
     if (metadata?.langgraph_node === "__end__") continue;
-    if (message.constructor.name === "AIMessageChunk" && message.content && !message.tool_calls?.length) {
+    if (
+      message.constructor.name === "AIMessageChunk" &&
+      message.content &&
+      typeof message.content === "string" &&
+      !message.tool_calls?.length
+    ) {
       fullResponse += message.content;
       yield { type: "token", content: message.content };
     }
@@ -125,5 +133,9 @@ export async function* chatStream(sessionId, userMessage) {
     history.push(new AIMessage(fullResponse));
   }
 
-  logger.info("Stream complete", { sessionId, responseLength: fullResponse.length });
+  logger.info("Chat complete", {
+    sessionId: sessionId.slice(0, 8),
+    responseLength: fullResponse.length,
+    toolsUsed: toolsUsed.join(", ") || "none",
+  });
 }
