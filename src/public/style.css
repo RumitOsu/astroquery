@@ -231,9 +231,27 @@ html, body {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 40px 20px 30px;
+  padding: 12px 20px 10px;
   animation: welcome-in 0.8s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
+}
+
+/* Scale welcome to fit in smaller viewports */
+@media (max-height: 750px) {
+  .welcome { padding: 8px 20px 8px; }
+  .welcome-planet { margin-bottom: 6px; }
+  .welcome-planet svg { width: 56px; height: 56px; }
+  .welcome h2 { font-size: 1.4rem; margin-bottom: 4px; }
+  .welcome p { font-size: 0.8rem; margin-bottom: 14px; line-height: 1.4; }
+  .suggestions { gap: 8px; margin-bottom: 14px; }
+  .suggestion { padding: 9px 11px; }
+  .suggestion-title { font-size: 0.8rem; }
+  .suggestion-desc { font-size: 0.67rem; }
+  .suggestion-icon-wrap { width: 28px; height: 28px; font-size: 0.95rem; }
+  .capabilities { gap: 5px 10px; }
+  .capability { padding: 3px 8px 3px 4px; }
+  .capability-icon { width: 22px; height: 22px; font-size: 0.75rem; }
+  .capability strong { font-size: 0.65rem; }
 }
 
 .welcome.hidden { display: none; }
@@ -245,29 +263,29 @@ html, body {
 
 .welcome-glow {
   position: absolute;
-  top: 20%;
+  top: 10%;
   left: 50%;
   transform: translateX(-50%);
-  width: 300px;
-  height: 300px;
+  width: 250px;
+  height: 250px;
   background: radial-gradient(circle, rgba(129, 140, 248, 0.08) 0%, transparent 70%);
   pointer-events: none;
 }
 
 .welcome-planet {
-  margin-bottom: 28px;
-  filter: drop-shadow(0 0 40px rgba(129, 140, 248, 0.2));
+  margin-bottom: 10px;
+  filter: drop-shadow(0 0 30px rgba(129, 140, 248, 0.2));
 }
 
 .welcome-planet svg {
-  width: 110px;
-  height: 110px;
+  width: 70px;
+  height: 70px;
 }
 
 .welcome h2 {
-  font-size: 2.2rem;
+  font-size: 1.7rem;
   font-weight: 800;
-  margin-bottom: 14px;
+  margin-bottom: 6px;
   background: linear-gradient(135deg, #f0f0ff 0%, #C4B5FD 50%, #818CF8 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -278,26 +296,26 @@ html, body {
 .welcome p {
   color: var(--text-secondary);
   max-width: 520px;
-  line-height: 1.7;
-  font-size: 0.92rem;
-  margin-bottom: 36px;
+  line-height: 1.5;
+  font-size: 0.85rem;
+  margin-bottom: 20px;
 }
 
 /* Suggestion Cards */
 .suggestions {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 10px;
   max-width: 600px;
   width: 100%;
-  margin-bottom: 40px;
+  margin-bottom: 20px;
 }
 
 .suggestion {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  padding: 16px;
+  gap: 10px;
+  padding: 11px 13px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -318,14 +336,14 @@ html, body {
 }
 
 .suggestion-icon-wrap {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
   background: rgba(129, 140, 248, 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.2rem;
+  font-size: 1.1rem;
   flex-shrink: 0;
 }
 
@@ -355,7 +373,7 @@ html, body {
 /* Capabilities */
 .capabilities {
   display: flex;
-  gap: 20px;
+  gap: 8px 16px;
   flex-wrap: wrap;
   justify-content: center;
   max-width: 700px;
@@ -364,46 +382,50 @@ html, body {
 .capability {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 0.78rem;
+  gap: 7px;
+  font-size: 0.72rem;
+  padding: 5px 10px 5px 6px;
+  border-radius: var(--radius-sm);
+  background: rgba(129, 140, 248, 0.04);
+  border: 1px solid var(--border);
 }
 
 .capability-icon {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
   background: color-mix(in srgb, var(--c) 10%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
 }
 
 .capability strong {
   display: block;
   color: var(--text-primary);
   font-weight: 600;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
 }
 
 .capability span {
   color: var(--text-muted);
-  font-size: 0.68rem;
+  font-size: 0.62rem;
 }
 
 /* ========== Messages ========== */
 .messages {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 20px 0;
+  gap: 4px;
+  padding: 16px 0;
 }
 
 .message {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   animation: msg-in 0.35s cubic-bezier(0.16, 1, 0.3, 1);
-  padding: 12px 0;
+  padding: 10px 0;
 }
 
 @keyframes msg-in {
@@ -842,25 +864,32 @@ textarea::placeholder { color: var(--text-muted); }
 
 /* ========== Responsive ========== */
 @media (max-width: 680px) {
-  .header { padding: 12px 16px; }
-  .chat-container { padding: 0 16px; }
-  .input-area { padding: 10px 16px 14px; }
-  .suggestions { grid-template-columns: 1fr; }
-  .welcome { padding: 30px 12px 20px; }
-  .welcome h2 { font-size: 1.6rem; }
-  .welcome-planet svg { width: 80px; height: 80px; }
+  .header { padding: 10px 14px; }
+  .chat-container { padding: 0 14px; }
+  .input-area { padding: 10px 14px 14px; }
+  .suggestions { grid-template-columns: 1fr; gap: 8px; }
+  .welcome { padding: 16px 12px 12px; }
+  .welcome h2 { font-size: 1.4rem; }
+  .welcome p { font-size: 0.82rem; margin-bottom: 18px; }
+  .welcome-planet svg { width: 60px; height: 60px; }
+  .welcome-planet { margin-bottom: 12px; }
   .logo h1 { font-size: 1.1rem; }
   .btn-label { display: none; }
-  .capabilities { gap: 12px; }
-  .capability { font-size: 0.72rem; }
+  .capabilities { gap: 6px 10px; }
+  .capability span { display: none; }
   .powered-by { display: none; }
   .tool-card-args { max-width: 200px; }
   .message { gap: 10px; }
+  .suggestion { padding: 10px 12px; }
+  .suggestion-icon-wrap { width: 30px; height: 30px; font-size: 1rem; }
+  .suggestion-title { font-size: 0.82rem; }
+  .suggestion-desc { font-size: 0.7rem; }
 }
 
 @media (max-width: 400px) {
-  .capabilities { flex-direction: column; align-items: center; }
+  .capabilities { gap: 4px 8px; }
   .status-text { display: none; }
+  .welcome-planet svg { width: 50px; height: 50px; }
 }
 
 /* ========== Cursor blink for streaming ========== */

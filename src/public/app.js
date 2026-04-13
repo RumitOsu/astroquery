@@ -114,24 +114,31 @@
 
 // ========== Markdown Rendering ==========
 function renderMarkdown(text) {
+  let html;
   if (typeof marked !== "undefined") {
     marked.setOptions({
       breaks: true,
       gfm: true,
-      headerIds: false,
-      mangle: false,
     });
-    return marked.parse(text);
+    try {
+      html = marked.parse(text);
+    } catch {
+      html = escapeHtml(text).replace(/\n/g, "<br>");
+    }
+  } else {
+    // Fallback
+    html = escapeHtml(text)
+      .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.+?)\*/g, '<em>$1</em>')
+      .replace(/\n\n/g, '</p><p>')
+      .replace(/\n/g, '<br>');
   }
-  // Fallback
-  return text
-    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
-    .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
-    .replace(/`([^`]+)`/g, '<code>$1</code>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/\n/g, '<br>');
+  // Strip any script/iframe tags for safety
+  html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
+  html = html.replace(/<iframe[\s\S]*?<\/iframe>/gi, '');
+  return html;
 }
 
 // ========== App State ==========
@@ -148,16 +155,21 @@ const clearBtn = document.getElementById("btn-clear");
 const statusEl = document.getElementById("status");
 
 // ========== Session ==========
-async function createSession() {
-  try {
-    const res = await fetch("/api/session", { method: "POST" });
-    const data = await res.json();
-    sessionId = data.sessionId;
-    statusEl.classList.add("connected");
-    statusEl.querySelector(".status-text").textContent = "Online";
-  } catch {
-    statusEl.querySelector(".status-text").textContent = "Offline";
+async function createSession(retries = 3) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch("/api/session", { method: "POST" });
+      const data = await res.json();
+      sessionId = data.sessionId;
+      statusEl.classList.add("connected");
+      statusEl.querySelector(".status-text").textContent = "Online";
+      sendBtn.disabled = !input.value.trim();
+      return;
+    } catch {
+      if (i < retries - 1) await new Promise(r => setTimeout(r, 1500));
+    }
   }
+  statusEl.querySelector(".status-text").textContent = "Offline";
 }
 
 // ========== Messages ==========
@@ -261,6 +273,10 @@ function addToolCard(msgEl, toolName, args) {
 // ========== Streaming ==========
 async function sendMessage(text) {
   if (isStreaming || !text.trim()) return;
+  if (!sessionId) {
+    await createSession();
+    if (!sessionId) return; // still offline
+  }
   isStreaming = true;
   sendBtn.disabled = true;
   input.value = "";
@@ -355,6 +371,7 @@ async function sendMessage(text) {
   isStreaming = false;
   sendBtn.disabled = !input.value.trim();
   scrollToBottom();
+  input.focus();
 }
 
 // ========== Event Listeners ==========
