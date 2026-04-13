@@ -1,0 +1,28 @@
+{
+  "name": "astroquery",
+  "version": "1.0.0",
+  "description": "Multi-tool AI chatbot agent for space and astronomy exploration, built with LangChain.js and the ReAct pattern",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "ingest": "node src/rag/ingest.js",
+    "dev": "node --watch src/server.js"
+  },
+  "keywords": ["langchain", "ai-agent", "astronomy", "react-pattern", "chatbot", "rag"],
+  "author": "RumitOsu",
+  "license": "MIT",
+  "dependencies": {
+    "@langchain/community": "^1.1.27",
+    "@langchain/core": "^1.1.39",
+    "@langchain/langgraph": "^0.2.71",
+    "@langchain/openai": "^1.4.4",
+    "@tavily/core": "^0.7.2",
+    "dotenv": "^16.4.7",
+    "express": "^5.2.1",
+    "langchain": "^1.3.1",
+    "mathjs": "^15.2.0",
+    "uuid": "^13.0.0",
+    "winston": "^3.19.0",
+    "zod": "^3.24.0"
+  }
+}
