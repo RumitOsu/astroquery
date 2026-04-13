@@ -3,13 +3,20 @@ import { z } from "zod";
 import { tavily } from "@tavily/core";
 import logger from "../../logger.js";
 
-const tvly = tavily({ apiKey: process.env.TAVILY_API_KEY });
+let tvly = null;
+
+function getClient() {
+  if (!tvly) {
+    tvly = tavily({ apiKey: process.env.TAVILY_API_KEY });
+  }
+  return tvly;
+}
 
 const spaceSearch = tool(
   async ({ query }) => {
     logger.info("SpaceSearch invoked", { tool: "SpaceSearch", query });
     try {
-      const response = await tvly.search(query, {
+      const response = await getClient().search(query, {
         maxResults: 5,
         searchDepth: "basic",
         includeAnswer: true,
