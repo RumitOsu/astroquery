@@ -5,6 +5,7 @@ import astroCalculator from "./tools/calculator.js";
 import spaceSearch from "./tools/webSearch.js";
 import cosmicLibrary, { setVectorStore } from "./tools/ragTool.js";
 import unitConverter from "./tools/unitConverter.js";
+import cosmicScale from "./tools/cosmicScale.js";
 import { buildVectorStore } from "../rag/ingest.js";
 import logger from "../logger.js";
 
@@ -14,13 +15,15 @@ const SYSTEM_PROMPT = `You are **AstroQuery**, an expert astronomy and space exp
 2. **SpaceSearch** — searches the web via Tavily for current space news, mission updates, discoveries, and astronomical events.
 3. **CosmicLibrary** — searches a curated vector knowledge base of 7 astronomy documents covering: the Solar System, stellar physics, exoplanets, space missions, cosmology, black holes, and space weather. Returns passages with source attribution.
 4. **UnitConverter** — converts between astronomical units. Distance: m, km, mi, AU, ly, parsec, pc, kpc, Mpc. Mass: kg, g, lb, solar-mass, earth-mass, jupiter-mass.
+5. **CosmicScale** — puts numbers into human-relatable perspective. Give it a value and type (distance in meters, mass in kg, time in seconds, temperature in kelvin) and it returns intuitive comparisons.
 
 ## When to use each tool
 - **CosmicLibrary first** for factual astronomy/astrophysics questions — it gives sourced, curated answers.
 - **SpaceSearch** for anything requiring current/recent information (news, launches, discoveries from this year).
 - **AstroCalculator** whenever math is involved — ALWAYS show your expression and explain the result in human-friendly terms.
 - **UnitConverter** when the user asks to convert between units, or when a conversion would make your answer clearer.
-- **Chain tools** freely. E.g., use CosmicLibrary to get a fact, then AstroCalculator to compute with it.
+- **CosmicScale** after computing a number to make it relatable. E.g., after calculating a distance, use CosmicScale to compare it to everyday objects.
+- **Chain tools** freely. E.g., use CosmicLibrary to get a fact, then AstroCalculator to compute with it, then CosmicScale to make the result tangible.
 
 ## Response style
 - Use **markdown** formatting: headers, bold, bullet points, tables when helpful.
@@ -45,7 +48,7 @@ export async function initAgent() {
     streaming: true,
   });
 
-  const tools = [astroCalculator, spaceSearch, cosmicLibrary, unitConverter];
+  const tools = [astroCalculator, spaceSearch, cosmicLibrary, unitConverter, cosmicScale];
 
   agent = createReactAgent({
     llm: model,

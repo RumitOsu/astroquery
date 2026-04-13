@@ -1,6 +1,6 @@
 # AstroQuery — Space & Astronomy AI Explorer
 
-A multi-tool AI chatbot agent built with **LangChain.js** that uses the **ReAct pattern** to help users explore space and astronomy. It autonomously decides which tools to invoke — math, web search, knowledge retrieval, or unit conversion — and chains them together to answer complex questions about the cosmos.
+A multi-tool AI chatbot agent built with **LangChain.js** that uses the **ReAct pattern** to help users explore space and astronomy. It autonomously decides which tools to invoke — math, web search, knowledge retrieval, unit conversion, or scale comparison — and chains them together to answer complex questions about the cosmos.
 
 ![AstroQuery](https://img.shields.io/badge/LangChain.js-ReAct_Agent-blue) ![Node.js](https://img.shields.io/badge/Node.js-Express-green) ![OpenAI](https://img.shields.io/badge/OpenAI-GPT--4o--mini-purple)
 
@@ -10,7 +10,8 @@ A multi-tool AI chatbot agent built with **LangChain.js** that uses the **ReAct 
 - **SpaceSearch** — Real-time web search via Tavily for current space news and discoveries
 - **CosmicLibrary** (RAG) — Vector search over 7 curated astronomy documents (~15k words) with source attribution
 - **UnitConverter** — Converts between astronomical distance and mass units
-- **Conversation Memory** — Multi-turn context with a 20-message sliding window
+- **CosmicScale** — Puts astronomical numbers into human-relatable perspective ("that's 4.2 million trips across the US")
+- **Conversation Memory** — Multi-turn context with a 24-message sliding window
 - **Streaming UI** — Server-Sent Events for real-time token streaming with tool call indicators
 - **Persistent Vector Store** — Embeddings are cached to disk and survive server restarts
 
@@ -82,7 +83,8 @@ astroquery/
 │   │       ├── calculator.js    # AstroCalculator (mathjs + constants)
 │   │       ├── webSearch.js     # SpaceSearch (Tavily)
 │   │       ├── ragTool.js       # CosmicLibrary (RAG with citations)
-│   │       └── unitConverter.js # UnitConverter (stretch)
+│   │       ├── unitConverter.js # UnitConverter (stretch)
+│   │       └── cosmicScale.js  # CosmicScale (5th tool)
 │   ├── rag/
 │   │   ├── ingest.js       # Document chunking + embedding
 │   │   └── documents/      # 7 curated astronomy docs (markdown)
@@ -119,6 +121,11 @@ Retrieves relevant passages from the curated knowledge base with source attribut
 > "Convert 4.24 light-years to kilometers"
 
 Returns `4.24 ly = 4.0115e+13 km`
+
+### CosmicScale
+> "How big is the Sun compared to everyday things?"
+
+Puts numbers in perspective: *"The Sun's mass is about 333,000x Earth"* or *"That distance is like driving from NYC to LA 4.2 million times"*
 
 ## Logging
 

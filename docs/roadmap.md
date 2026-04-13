@@ -41,6 +41,7 @@
 ## Phase 7: Stretch Goals ✅
 - [x] Streaming in web UI (SSE)
 - [x] 4th custom tool (UnitConverter)
+- [x] 5th custom tool (CosmicScale — puts numbers in perspective)
 - [x] Persistent vector store (survives restarts)
 - [x] Agent proposal document
 

@@ -27,6 +27,7 @@
   --tool-search: #34D399;
   --tool-rag: #F472B6;
   --tool-unit: #FBBF24;
+  --tool-scale: #38BDF8;
   --radius: 14px;
   --radius-sm: 10px;
   --radius-lg: 18px;
@@ -644,6 +645,13 @@ html, body {
   color: var(--tool-unit);
 }
 .tool-card.unit::before { background: var(--tool-unit); }
+
+.tool-card.scale {
+  background: rgba(56, 189, 248, 0.06);
+  border: 1px solid rgba(56, 189, 248, 0.15);
+  color: var(--tool-scale);
+}
+.tool-card.scale::before { background: var(--tool-scale); }
 
 .tool-card-icon {
   font-size: 1rem;

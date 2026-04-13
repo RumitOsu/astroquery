@@ -219,6 +219,7 @@ const TOOL_META = {
   SpaceSearch: { cls: "search", icon: "🔍", label: "Web Search" },
   CosmicLibrary: { cls: "rag", icon: "📚", label: "Knowledge Base" },
   UnitConverter: { cls: "unit", icon: "📐", label: "Unit Converter" },
+  CosmicScale: { cls: "scale", icon: "🔬", label: "Scale Comparator" },
 };
 
 function addToolCard(msgEl, toolName, args) {

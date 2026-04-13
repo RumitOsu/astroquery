@@ -47,6 +47,11 @@ AstroQuery is a conversational AI agent that acts as a personal astronomy resear
 - Source citations displayed inline for RAG results
 - Mobile-responsive design
 
+### 5. CosmicScale (Stretch Goal — 5th Tool)
+- Puts astronomical numbers into human-relatable perspective
+- Compares distances, masses, times, and temperatures to everyday objects
+- Example: "4.01e16 meters is about 4.2x the distance to the nearest star" or "15% of the age of the universe"
+
 ## Streaming (Stretch Goal)
 - Server-Sent Events (SSE) for token-by-token streaming
 - Visual typing indicator during agent reasoning
