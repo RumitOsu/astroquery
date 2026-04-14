@@ -53,6 +53,7 @@ export async function initAgent() {
   agent = createReactAgent({
     llm: model,
     tools,
+    maxIterations: 10,
   });
 
   logger.info("Agent initialized with tools: " + tools.map((t) => t.name).join(", "));
@@ -84,51 +85,68 @@ export async function* chatStream(sessionId, userMessage) {
     historyLength: recentHistory.length,
   });
 
+  // Use "updates" stream mode for reliable event detection
   const stream = await agent.stream(
     { messages: [new SystemMessage(SYSTEM_PROMPT), ...recentHistory] },
-    { streamMode: "messages" }
+    { streamMode: "updates" }
   );
 
   let fullResponse = "";
   const toolsUsed = [];
 
-  for await (const [message, metadata] of stream) {
-    // Emit tool calls
-    if (message.tool_calls && message.tool_calls.length > 0) {
-      for (const tc of message.tool_calls) {
-        if (!tc.name) continue;
-        toolsUsed.push(tc.name);
-        logger.info("Tool call", {
-          tool: tc.name,
-          args: JSON.stringify(tc.args).slice(0, 200),
-        });
-        yield { type: "tool_call", name: tc.name, args: tc.args };
+  for await (const update of stream) {
+    // Agent node — contains AI message with tool calls or final response
+    if (update.agent) {
+      const msgs = update.agent.messages || [];
+      for (const msg of msgs) {
+        // Tool calls
+        if (msg.tool_calls && msg.tool_calls.length > 0) {
+          for (const tc of msg.tool_calls) {
+            if (!tc.name) continue;
+            toolsUsed.push(tc.name);
+            logger.info("Tool call", {
+              tool: tc.name,
+              args: JSON.stringify(tc.args).slice(0, 200),
+            });
+            yield { type: "tool_call", name: tc.name, args: tc.args };
+          }
+        }
+
+        // Final AI text response (no tool calls = final answer)
+        if (msg.content && typeof msg.content === "string" && (!msg.tool_calls || msg.tool_calls.length === 0)) {
+          fullResponse = msg.content;
+          logger.info("AI response", { length: msg.content.length });
+          // Send the full response in chunks for a streaming feel
+          const words = msg.content.split(/(\s+)/);
+          let buffer = "";
+          for (const word of words) {
+            buffer += word;
+            if (buffer.length >= 15) {
+              yield { type: "token", content: buffer };
+              buffer = "";
+            }
+          }
+          if (buffer) yield { type: "token", content: buffer };
+        }
       }
     }
 
-    // Emit tool results
-    if (message.name && message.content) {
-      const preview = typeof message.content === "string"
-        ? message.content.slice(0, 300)
-        : JSON.stringify(message.content).slice(0, 300);
-      logger.info("Tool result", {
-        tool: message.name,
-        resultLength: message.content?.length || 0,
-        preview: preview.slice(0, 100),
-      });
-      yield { type: "tool_result", name: message.name, content: preview };
-    }
-
-    // Emit AI text tokens
-    if (metadata?.langgraph_node === "__end__") continue;
-    if (
-      message.constructor.name === "AIMessageChunk" &&
-      message.content &&
-      typeof message.content === "string" &&
-      !message.tool_calls?.length
-    ) {
-      fullResponse += message.content;
-      yield { type: "token", content: message.content };
+    // Tools node — contains tool results
+    if (update.tools) {
+      const msgs = update.tools.messages || [];
+      for (const msg of msgs) {
+        if (msg.content) {
+          const preview = typeof msg.content === "string"
+            ? msg.content.slice(0, 300)
+            : JSON.stringify(msg.content).slice(0, 300);
+          logger.info("Tool result", {
+            tool: msg.name,
+            resultLength: msg.content.length || 0,
+            preview: preview.slice(0, 100),
+          });
+          yield { type: "tool_result", name: msg.name, content: preview };
+        }
+      }
     }
   }
 

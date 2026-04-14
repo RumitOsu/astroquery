@@ -2,7 +2,7 @@ import express from "express";
 import { fileURLToPath } from "url";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
-import { initAgent, chatStream, clearHistory } from "./agent/index.js";
+import { initAgent, chatStream } from "./agent/index.js";
 import logger from "./logger.js";
 import dotenv from "dotenv";
 
@@ -27,50 +27,73 @@ app.post("/api/session", (_req, res) => {
   res.json({ sessionId });
 });
 
-// Streaming chat endpoint (SSE)
+// Non-streaming chat endpoint (fallback)
+app.post("/api/chat", async (req, res) => {
+  const { sessionId, message } = req.body;
+  if (!sessionId || !message) {
+    return res.status(400).json({ error: "sessionId and message are required" });
+  }
+
+  try {
+    let fullResponse = "";
+    const tools = [];
+    for await (const event of chatStream(sessionId, message)) {
+      if (event.type === "token") fullResponse += event.content;
+      if (event.type === "tool_call") tools.push(event.name);
+    }
+    res.json({ response: fullResponse, tools });
+  } catch (err) {
+    logger.error("Chat error", { error: err.message });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Streaming chat endpoint (SSE) — use raw node response to avoid Express buffering
 app.post("/api/chat/stream", async (req, res) => {
   const { sessionId, message } = req.body;
   if (!sessionId || !message) {
     return res.status(400).json({ error: "sessionId and message are required" });
   }
 
-  if (message.length > 2000) {
-    return res.status(400).json({ error: "Message too long (max 2000 characters)" });
-  }
+  // Access the underlying node http.ServerResponse
+  const nodeRes = res;
 
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
-  res.setHeader("X-Accel-Buffering", "no");
+  // Write headers directly and flush
+  nodeRes.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    "Connection": "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  // Flush headers immediately
+  nodeRes.flushHeaders();
 
-  // Handle client disconnect
   let closed = false;
   req.on("close", () => { closed = true; });
+
+  function send(data) {
+    if (closed) return;
+    nodeRes.write(`data: ${JSON.stringify(data)}\n\n`);
+  }
 
   try {
     for await (const event of chatStream(sessionId, message)) {
       if (closed) break;
-      res.write(`data: ${JSON.stringify(event)}\n\n`);
+      send(event);
     }
-    if (!closed) {
-      res.write(`data: ${JSON.stringify({ type: "done" })}\n\n`);
-    }
+    send({ type: "done" });
   } catch (err) {
     logger.error("Stream error", {
       sessionId: sessionId.slice(0, 8),
       error: err.message,
-      stack: err.stack?.split("\n").slice(0, 3).join(" | "),
     });
-    if (!closed) {
-      res.write(`data: ${JSON.stringify({ type: "error", content: err.message })}\n\n`);
-    }
+    send({ type: "error", content: err.message });
   }
-  res.end();
+  nodeRes.end();
 });
 
-// Start server
+// Start
 async function start() {
-  // Validate environment
   if (!process.env.OPENAI_API_KEY) {
     logger.error("OPENAI_API_KEY is not set. Create a .env file from .env.example");
     process.exit(1);

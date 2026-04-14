@@ -282,12 +282,39 @@ function addToolCard(msgEl, toolName, args) {
   return card;
 }
 
-// ========== Streaming ==========
+// ========== Typewriter effect ==========
+function typewriter(textEl, fullText, onDone) {
+  const words = fullText.split(/(\s+)/);
+  let shown = "";
+  let i = 0;
+  const speed = 12; // ms per word chunk
+
+  function tick() {
+    if (i >= words.length) {
+      textEl.classList.remove("streaming-cursor");
+      textEl.innerHTML = renderMarkdown(fullText);
+      scrollToBottom();
+      if (onDone) onDone();
+      return;
+    }
+    // Show 2-3 words at a time for natural feel
+    const chunk = words.slice(i, i + 3).join("");
+    shown += chunk;
+    i += 3;
+    textEl.innerHTML = renderMarkdown(shown);
+    textEl.classList.add("streaming-cursor");
+    scrollToBottom();
+    setTimeout(tick, speed);
+  }
+  tick();
+}
+
+// ========== Send Message ==========
 async function sendMessage(text) {
   if (isStreaming || !text.trim()) return;
   if (!sessionId) {
     await createSession();
-    if (!sessionId) return; // still offline
+    if (!sessionId) return;
   }
   isStreaming = true;
   sendBtn.disabled = true;
@@ -297,105 +324,59 @@ async function sendMessage(text) {
   addUserMessage(text);
   const msgEl = createAssistantMessage();
   const textEl = msgEl.querySelector(".message-text");
-  let currentCard = null;
-  let fullText = "";
 
   try {
-    const res = await fetch("/api/chat/stream", {
+    const res = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ sessionId, message: text }),
     });
 
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
+    const data = await res.json();
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    if (data.error) {
+      textEl.innerHTML = `<p style="color: var(--error);">Error: ${escapeHtml(data.error)}</p>`;
+      isStreaming = false;
+      sendBtn.disabled = !input.value.trim();
+      return;
+    }
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
-
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-
-        let data;
-        try { data = JSON.parse(line.slice(6)); }
-        catch { continue; }
-
-        switch (data.type) {
-          case "tool_call":
-            currentCard = addToolCard(msgEl, data.name, data.args);
-            // Update thinking text
-            const thinking = textEl.querySelector(".thinking-indicator span:last-child");
-            if (thinking) {
-              const meta = TOOL_META[data.name] || { label: data.name };
-              thinking.textContent = `Using ${meta.label}...`;
-            }
-            break;
-
-          case "tool_result":
-            if (currentCard) {
-              currentCard.classList.add("done");
-              const resultEl = currentCard.querySelector(".tool-card-result");
-              if (resultEl && data.content) {
-                resultEl.textContent = data.content;
-              }
-              currentCard = null;
-            }
-            break;
-
-          case "token":
-            if (fullText === "") {
-              textEl.innerHTML = "";
-            }
-            fullText += data.content;
-            textEl.innerHTML = renderMarkdown(fullText);
-            textEl.classList.add("streaming-cursor");
-            scrollToBottom();
-            break;
-
-          case "error":
-            textEl.innerHTML = `<p style="color: var(--error);">Error: ${escapeHtml(data.content)}</p>`;
-            break;
-
-          case "done":
-            textEl.classList.remove("streaming-cursor");
-            if (fullText === "") {
-              const thinkEl = textEl.querySelector(".thinking-indicator");
-              if (thinkEl) thinkEl.remove();
-              textEl.innerHTML = "<p>I processed your request. Please try rephrasing if you didn't get the expected response.</p>";
-            }
-            // Show actions bar
-            const actions = msgEl.querySelector(".message-actions");
-            if (actions) {
-              actions.style.display = "";
-              const copyBtn = actions.querySelector(".btn-copy");
-              copyBtn.addEventListener("click", () => {
-                navigator.clipboard.writeText(fullText).then(() => {
-                  copyBtn.querySelector("span").textContent = "Copied!";
-                  setTimeout(() => { copyBtn.querySelector("span").textContent = "Copy"; }, 2000);
-                });
-              });
-            }
-            break;
-        }
+    // Show tool cards
+    if (data.tools && data.tools.length > 0) {
+      for (const toolName of data.tools) {
+        const card = addToolCard(msgEl, toolName, null);
+        card.classList.add("done");
       }
     }
 
-    textEl.classList.remove("streaming-cursor");
-  } catch (err) {
-    console.error("Stream error:", err);
-    textEl.innerHTML = `<p style="color: var(--error);">Connection error. Please check the server and try again.</p>`;
-  }
+    // Typewriter the response
+    textEl.innerHTML = "";
+    const fullText = data.response || "No response generated.";
 
-  isStreaming = false;
-  sendBtn.disabled = !input.value.trim();
-  scrollToBottom();
-  input.focus();
+    typewriter(textEl, fullText, () => {
+      // Show actions bar
+      const actions = msgEl.querySelector(".message-actions");
+      if (actions) {
+        actions.style.display = "";
+        const copyBtn = actions.querySelector(".btn-copy");
+        copyBtn.addEventListener("click", () => {
+          navigator.clipboard.writeText(fullText).then(() => {
+            copyBtn.querySelector("span").textContent = "Copied!";
+            setTimeout(() => { copyBtn.querySelector("span").textContent = "Copy"; }, 2000);
+          });
+        });
+      }
+      isStreaming = false;
+      sendBtn.disabled = !input.value.trim();
+      scrollToBottom();
+      input.focus();
+    });
+  } catch (err) {
+    console.error("Chat error:", err);
+    textEl.innerHTML = `<p style="color: var(--error);">Connection error. Please check the server and try again.</p>`;
+    isStreaming = false;
+    sendBtn.disabled = !input.value.trim();
+  }
 }
 
 // ========== Event Listeners ==========
