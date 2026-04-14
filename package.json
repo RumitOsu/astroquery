@@ -8,7 +8,14 @@
     "ingest": "node src/rag/ingest.js",
     "dev": "node --watch src/server.js"
   },
-  "keywords": ["langchain", "ai-agent", "astronomy", "react-pattern", "chatbot", "rag"],
+  "keywords": [
+    "langchain",
+    "ai-agent",
+    "astronomy",
+    "react-pattern",
+    "chatbot",
+    "rag"
+  ],
   "author": "RumitOsu",
   "license": "MIT",
   "dependencies": {
@@ -17,9 +24,11 @@
     "@langchain/langgraph": "^0.2.71",
     "@langchain/openai": "^1.4.4",
     "@tavily/core": "^0.7.2",
+    "dompurify": "^3.3.3",
     "dotenv": "^16.4.7",
     "express": "^5.2.1",
     "langchain": "^1.3.1",
+    "marked": "^18.0.0",
     "mathjs": "^15.2.0",
     "uuid": "^13.0.0",
     "winston": "^3.19.0",
